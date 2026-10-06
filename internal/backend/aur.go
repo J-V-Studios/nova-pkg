@@ -12,8 +12,9 @@ import (
 	"time"
 )
 
-// aurRPCURL is the AUR RPC endpoint, version 5.
-const aurRPCURL = "https://aur.archlinux.org/rpc/?v=5"
+// aurRPCURL is the AUR RPC endpoint, version 5. Variable (not const)
+// so tests can point it at httptest servers.
+var aurRPCURL = "https://aur.archlinux.org/rpc/?v=5"
 
 // AUR is the backend for the Arch User Repository.
 type AUR struct{}
@@ -126,17 +127,27 @@ func (AUR) Update() error {
 	for _, r := range ar.Results {
 		latest[r.Name] = r.Version
 	}
-	outdated := 0
-	for _, p := range foreign {
-		if v, ok := latest[p.Name]; ok && v != p.Version {
-			outdated++
-			fmt.Printf("aur: %s %s -> %s (run: nova-pkg install %s)\n", p.Name, p.Version, v, p.Name)
-		}
+	outdated := outdatedAUR(foreign, latest)
+	for _, o := range outdated {
+		fmt.Printf("aur: %s %s -> %s (run: nova-pkg install %s)\n", o.Name, o.Version, latest[o.Name], o.Name)
 	}
-	if outdated == 0 {
+	if len(outdated) == 0 {
 		fmt.Println("aur: all foreign packages up to date")
 	}
 	return nil
+}
+
+// outdatedAUR returns foreign packages whose installed version differs
+// from the latest AUR version. Pure string inequality: occasional false
+// positives are possible (epoch changes, packaging suffixes).
+func outdatedAUR(foreign []Package, latest map[string]string) []Package {
+	var out []Package
+	for _, p := range foreign {
+		if v, ok := latest[p.Name]; ok && v != p.Version {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // List returns foreign packages (`pacman -Qm`), which on this system

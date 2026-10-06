@@ -26,11 +26,23 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Verify modules
+        run: go mod verify
+
       - name: Build
         run: go build ./...
 
       - name: Test
-        run: go test ./...
+        # -race: catch data races in parallel search
+        # -count=1: never pass on cached results
+        run: go test -race -count=1 -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+          retention-days: 7
 
   # Real pacman + AUR (makepkg) tests
   arch-integration:
@@ -55,7 +67,7 @@ jobs:
 
       - name: Integration tests (pacman + AUR)
         run: |
-          su builder -c "cd '$GITHUB_WORKSPACE' && go test -tags integration,pacman,aur ./..."
+          su builder -c "cd '$GITHUB_WORKSPACE' && go test -count=1 -tags integration,pacman,aur ./..."
 
   # Real Flatpak tests
   flatpak-integration:
@@ -79,7 +91,7 @@ jobs:
         run: flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
       - name: Integration tests (Flatpak)
-        run: go test -tags integration,flatpak ./...
+        run: go test -count=1 -tags integration,flatpak ./...
 
   # Real Snap tests (needs systemd/snapd, so use the native Ubuntu runner)
   snap-integration:
@@ -93,4 +105,4 @@ jobs:
           go-version-file: go.mod
 
       - name: Integration tests (Snap)
-        run: go test -tags integration,snap ./...
+        run: go test -count=1 -tags integration,snap ./...
