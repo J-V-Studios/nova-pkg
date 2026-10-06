@@ -1,0 +1,13 @@
+# binaries
+/nova-pkg
+/bin/
+*.exe
+
+# test/coverage
+*.test
+*.out
+
+# editor/OS
+.vscode/
+.idea/
+.DS_Store
