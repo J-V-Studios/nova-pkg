@@ -84,3 +84,37 @@ func TestSearchAllEmpty(t *testing.T) {
 		t.Fatalf("got %d results, want 0", len(results))
 	}
 }
+
+func TestOrderBackends(t *testing.T) {
+	names := func(bs []backend.Backend) []string {
+		var out []string
+		for _, b := range bs {
+			out = append(out, b.Name())
+		}
+		return out
+	}
+	tests := []struct {
+		name     string
+		priority []string
+		want     []string
+	}{
+		{name: "default", priority: nil, want: []string{"pacman", "aur", "flatpak"}},
+		{name: "reorder", priority: []string{"flatpak"}, want: []string{"flatpak", "pacman", "aur"}},
+		{name: "full reorder", priority: []string{"flatpak", "aur", "pacman"}, want: []string{"flatpak", "aur", "pacman"}},
+		{name: "unknown ignored", priority: []string{"snap", "aur"}, want: []string{"aur", "pacman", "flatpak"}},
+		{name: "duplicates collapse", priority: []string{"aur", "aur"}, want: []string{"aur", "pacman", "flatpak"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := names(orderBackends(tt.priority))
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+			for i := range tt.want {
+				if got[i] != tt.want[i] {
+					t.Fatalf("got %v, want %v", got, tt.want)
+				}
+			}
+		})
+	}
+}
