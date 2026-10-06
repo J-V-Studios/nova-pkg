@@ -16,13 +16,18 @@ func TestBackendContract(t *testing.T) {
 	}
 }
 
-// TestSearchErrorsWrapped checks backend errors carry context naming
-// the backend, per project convention (fmt.Errorf with %w).
-func TestSearchErrorsWrapped(t *testing.T) {
+// TestSearchMissingToolNoResults: when the underlying tool is absent,
+// Search must not crash; empty output maps to no results, no error.
+// This matches how pacman/flatpak treat "no matches" (exit 1, no output).
+func TestSearchMissingToolNoResults(t *testing.T) {
 	if (Pacman{}).Available() {
 		t.Skip("pacman present; cannot test missing-tool path")
 	}
-	if _, err := (Pacman{}).Search("x"); err == nil {
-		t.Error("want error when pacman missing")
+	pkgs, err := (Pacman{}).Search("x")
+	if err != nil {
+		t.Errorf("missing tool should not error, got %v", err)
+	}
+	if len(pkgs) != 0 {
+		t.Errorf("got %d packages, want 0", len(pkgs))
 	}
 }
