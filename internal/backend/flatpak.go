@@ -43,17 +43,22 @@ func (Flatpak) Install(pkg string) error {
 }
 
 // parseFlatpakSearch parses `flatpak search --columns=name,description,application,version`
-// output: tab-separated rows, first line is the header. Pure function
-// so it can be unit tested without running flatpak.
+// output: tab-separated rows. flatpak omits the header when stdout is
+// not a terminal, so rows are identified by field count, not position.
+// Pure function so it can be unit tested without running flatpak.
 func parseFlatpakSearch(output string) []Package {
 	var pkgs []Package
-	lines := strings.Split(output, "\n")
-	for i, line := range lines {
-		if i == 0 || line == "" {
-			continue // header
+	for _, line := range strings.Split(output, "\n") {
+		if line == "" {
+			continue
 		}
 		cols := strings.Split(line, "\t")
 		if len(cols) < 4 {
+			continue // malformed line
+		}
+		// On a terminal flatpak prints a header row; skip it. Versions
+		// always contain a digit or "r<digits>", headers never do.
+		if !strings.ContainsAny(cols[3], "0123456789") {
 			continue
 		}
 		pkgs = append(pkgs, Package{

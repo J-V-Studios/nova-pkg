@@ -3,8 +3,8 @@ package backend
 import "testing"
 
 func TestParseFlatpakSearch(t *testing.T) {
-	sample := "Name\tDescription\tApplication ID\tVersion\n" +
-		"Cava\tConsole-based Audio Visualizer\torg.cava.Cava\t0.10.4\n" +
+	// flatpak omits the header when stdout is not a terminal.
+	sample := "Cava\tConsole-based Audio Visualizer\torg.cava.Cava\t0.10.4\n" +
 		"Shortwave\tListen to internet radio\tde.haeckerfelix.Shortwave\t3.2.0\n"
 	pkgs := parseFlatpakSearch(sample)
 	if len(pkgs) != 2 {
@@ -16,6 +16,19 @@ func TestParseFlatpakSearch(t *testing.T) {
 	}
 	if pkgs[1].Name != "de.haeckerfelix.Shortwave" {
 		t.Errorf("unexpected second package: %+v", pkgs[1])
+	}
+}
+
+func TestParseFlatpakSearchWithHeader(t *testing.T) {
+	// On a terminal flatpak prints a header row; it must be skipped.
+	sample := "Name\tDescription\tApplication ID\tVersion\n" +
+		"Cava\tConsole-based Audio Visualizer\torg.cava.Cava\t0.10.4\n"
+	pkgs := parseFlatpakSearch(sample)
+	if len(pkgs) != 1 {
+		t.Fatalf("got %d packages, want 1", len(pkgs))
+	}
+	if pkgs[0].Name != "org.cava.Cava" {
+		t.Errorf("unexpected package: %+v", pkgs[0])
 	}
 }
 
