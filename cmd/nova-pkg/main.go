@@ -54,7 +54,8 @@ func orderBackends(priority []string) []backend.Backend {
 func init() {
 	cfg, err := config.Load()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+		// Config must never block the CLI: warn, fall back to defaults.
+		fmt.Fprintf(os.Stderr, "warning: %v (using default backend order)\n", err)
 	}
 	backends = orderBackends(cfg.Priority)
 	rootCmd.AddCommand(searchCmd, installCmd, removeCmd, updateCmd, listCmd)
