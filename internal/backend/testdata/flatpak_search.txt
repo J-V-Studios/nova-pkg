@@ -1,0 +1,2 @@
+Cava	Console-based Audio Visualizer	org.cava.Cava	0.10.4
+Shortwave	Listen to internet radio	de.haeckerfelix.Shortwave	3.2.0

@@ -1,0 +1,2 @@
+linux 6.10.2.arch1-1
+firefox 130.0-1

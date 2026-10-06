@@ -5,34 +5,11 @@ import (
 	"testing"
 )
 
-// Sample AUR RPC v5 reply, trimmed to two results. No network involved:
-// the test decodes a fixed literal and checks parseAURSearch.
+// TestParseAURSearch decodes the golden RPC v5 reply from testdata.
+// No network involved.
 func TestParseAURSearch(t *testing.T) {
-	sample := `{
-		"version": 5,
-		"type": "search",
-		"resultcount": 2,
-		"results": [
-			{
-				"ID": 1462842,
-				"Name": "cava",
-				"PackageBaseID": 114751,
-				"Version": "0.10.4-1",
-				"Description": "Cross-platform Audio Visualizer",
-				"URL": "https://github.com/karlstav/cava"
-			},
-			{
-				"ID": 990909,
-				"Name": "cava-git",
-				"PackageBaseID": 114753,
-				"Version": "0.8.3.r1.g8a6b6d3-1",
-				"Description": "Cross-platform Audio Visualizer (git version)"
-			}
-		]
-	}`
-
 	var ar aurResponse
-	if err := json.Unmarshal([]byte(sample), &ar); err != nil {
+	if err := json.Unmarshal([]byte(readTestdata(t, "aur_search.json")), &ar); err != nil {
 		t.Fatalf("unmarshal sample: %v", err)
 	}
 
@@ -52,5 +29,21 @@ func TestParseAURSearch(t *testing.T) {
 func TestParseAURSearchEmpty(t *testing.T) {
 	if pkgs := parseAURSearch(aurResponse{}); len(pkgs) != 0 {
 		t.Fatalf("got %d packages, want 0", len(pkgs))
+	}
+}
+
+// TestAURResponseUnknownFields ensures extra RPC fields (votes,
+// popularity, timestamps, ...) do not break decoding.
+func TestAURResponseUnknownFields(t *testing.T) {
+	sample := `{"version":5,"type":"search","resultcount":1,"results":[
+		{"ID":1,"Name":"x","Version":"1.0-1","Description":"d",
+		 "NumVotes":42,"Popularity":1.5,"LastModified":1700000000}]}`
+	var ar aurResponse
+	if err := json.Unmarshal([]byte(sample), &ar); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	pkgs := parseAURSearch(ar)
+	if len(pkgs) != 1 || pkgs[0].Name != "x" {
+		t.Fatalf("unexpected packages: %+v", pkgs)
 	}
 }

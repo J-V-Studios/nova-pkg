@@ -1,0 +1,2 @@
+Name	Application ID	Version
+Shortwave	de.haeckerfelix.Shortwave	5.1.0

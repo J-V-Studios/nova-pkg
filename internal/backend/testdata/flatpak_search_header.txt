@@ -1,0 +1,2 @@
+Name	Description	Application ID	Version
+Cava	Console-based Audio Visualizer	org.cava.Cava	0.10.4

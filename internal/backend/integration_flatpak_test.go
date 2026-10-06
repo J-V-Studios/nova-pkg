@@ -55,3 +55,48 @@ func TestFlatpakListIntegration(t *testing.T) {
 		}
 	}
 }
+
+// TestFlatpakInstallRemoveIntegration does a real round-trip with the
+// smallest flathub app available, then removes it. Mutation is
+// contained to flatpak's store; no root needed.
+func TestFlatpakInstallRemoveIntegration(t *testing.T) {
+	if _, err := exec.LookPath("flatpak"); err != nil {
+		t.Skip("flatpak not installed")
+	}
+	const app = "com.github.tchx84.Flatseal" // small, no runtime deps
+
+	if err := (Flatpak{}).Install(app); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	t.Cleanup(func() {
+		// Best-effort cleanup even on failure.
+		exec.Command("flatpak", "uninstall", "-y", app).Run()
+	})
+
+	pkgs, err := Flatpak{}.List()
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	found := false
+	for _, p := range pkgs {
+		if p.Name == app {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("%s not in flatpak list after install", app)
+	}
+
+	if err := (Flatpak{}).Remove(app); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	pkgs, err = Flatpak{}.List()
+	if err != nil {
+		t.Fatalf("list after remove: %v", err)
+	}
+	for _, p := range pkgs {
+		if p.Name == app {
+			t.Fatalf("%s still installed after remove", app)
+		}
+	}
+}

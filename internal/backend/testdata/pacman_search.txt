@@ -1,0 +1,4 @@
+core/linux 6.10.2.arch1-1 [installed]
+    The Linux kernel and modules
+extra/firefox 130.0-1
+    Fast, Private & Safe Web Browser

@@ -3,48 +3,81 @@ package backend
 import "testing"
 
 func TestParseSearch(t *testing.T) {
-	sample := `core/linux 6.10.2.arch1-1 [installed]
-    The Linux kernel and modules
-extra/firefox 130.0-1
-    Fast, Private & Safe Web Browser
-`
-	pkgs := parseSearch(sample)
-	if len(pkgs) != 2 {
-		t.Fatalf("got %d packages, want 2", len(pkgs))
+	tests := []struct {
+		name     string
+		input    string
+		wantN    int
+		wantName []string // checked when non-nil
+	}{
+		{name: "empty", input: "", wantN: 0},
+		{
+			name:     "golden file",
+			input:    readTestdata(t, "pacman_search.txt"),
+			wantN:    2,
+			wantName: []string{"linux", "firefox"},
+		},
+		{name: "description only", input: "    orphan description\n", wantN: 0},
+		{name: "blank lines", input: "\n\n", wantN: 0},
 	}
-
-	if pkgs[0].Name != "linux" || pkgs[0].Version != "6.10.2.arch1-1" ||
-		pkgs[0].Description != "The Linux kernel and modules" || pkgs[0].Source != "pacman" {
-		t.Errorf("unexpected first package: %+v", pkgs[0])
-	}
-	if pkgs[1].Name != "firefox" || pkgs[1].Version != "130.0-1" ||
-		pkgs[1].Description != "Fast, Private & Safe Web Browser" {
-		t.Errorf("unexpected second package: %+v", pkgs[1])
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pkgs := parseSearch(tt.input)
+			if len(pkgs) != tt.wantN {
+				t.Fatalf("got %d packages, want %d", len(pkgs), tt.wantN)
+			}
+			for i, name := range tt.wantName {
+				if pkgs[i].Name != name {
+					t.Errorf("pkg %d name = %q, want %q", i, pkgs[i].Name, name)
+				}
+				if pkgs[i].Source != "pacman" {
+					t.Errorf("pkg %d source = %q, want pacman", i, pkgs[i].Source)
+				}
+			}
+		})
 	}
 }
 
-func TestParseSearchEmpty(t *testing.T) {
-	if pkgs := parseSearch(""); len(pkgs) != 0 {
-		t.Fatalf("got %d packages, want 0", len(pkgs))
+func TestParseSearchFields(t *testing.T) {
+	pkgs := parseSearch(readTestdata(t, "pacman_search.txt"))
+	if len(pkgs) != 2 {
+		t.Fatalf("got %d packages, want 2", len(pkgs))
+	}
+	want := []Package{
+		{Name: "linux", Version: "6.10.2.arch1-1", Description: "The Linux kernel and modules", Source: "pacman"},
+		{Name: "firefox", Version: "130.0-1", Description: "Fast, Private & Safe Web Browser", Source: "pacman"},
+	}
+	for i, w := range want {
+		if pkgs[i] != w {
+			t.Errorf("pkg %d = %+v, want %+v", i, pkgs[i], w)
+		}
 	}
 }
 
 func TestParsePacmanQ(t *testing.T) {
-	sample := "linux 6.10.2.arch1-1\nfirefox 130.0-1\n"
-	pkgs := parsePacmanQ(sample, "pacman")
-	if len(pkgs) != 2 {
-		t.Fatalf("got %d packages, want 2", len(pkgs))
+	tests := []struct {
+		name   string
+		input  string
+		wantN  int
+		source string
+	}{
+		{name: "empty", input: "", wantN: 0, source: "pacman"},
+		{name: "golden file", input: readTestdata(t, "pacman_q.txt"), wantN: 2, source: "pacman"},
+		{name: "aur source tag", input: "cava 0.10.4-1\n", wantN: 1, source: "aur"},
 	}
-	if pkgs[0].Name != "linux" || pkgs[0].Version != "6.10.2.arch1-1" || pkgs[0].Source != "pacman" {
-		t.Errorf("unexpected first package: %+v", pkgs[0])
-	}
-	if pkgs[1].Name != "firefox" || pkgs[1].Version != "130.0-1" {
-		t.Errorf("unexpected second package: %+v", pkgs[1])
-	}
-}
-
-func TestParsePacmanQEmpty(t *testing.T) {
-	if pkgs := parsePacmanQ("", "pacman"); len(pkgs) != 0 {
-		t.Fatalf("got %d packages, want 0", len(pkgs))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pkgs := parsePacmanQ(tt.input, tt.source)
+			if len(pkgs) != tt.wantN {
+				t.Fatalf("got %d packages, want %d", len(pkgs), tt.wantN)
+			}
+			for _, p := range pkgs {
+				if p.Name == "" || p.Version == "" {
+					t.Errorf("empty field in %+v", p)
+				}
+				if p.Source != tt.source {
+					t.Errorf("source = %q, want %q", p.Source, tt.source)
+				}
+			}
+		})
 	}
 }
