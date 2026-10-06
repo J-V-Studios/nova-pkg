@@ -42,6 +42,63 @@ func (Flatpak) Install(pkg string) error {
 	return nil
 }
 
+func (Flatpak) Remove(pkg string) error {
+	cmd := exec.Command("flatpak", "uninstall", "-y", pkg)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("flatpak remove %s: %w", pkg, err)
+	}
+	return nil
+}
+
+func (Flatpak) Update() error {
+	cmd := exec.Command("flatpak", "update", "-y")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("flatpak update: %w", err)
+	}
+	return nil
+}
+
+func (Flatpak) List() ([]Package, error) {
+	out, err := exec.Command("flatpak", "list", "--app",
+		"--columns=name,application,version").Output()
+	if err != nil {
+		return nil, fmt.Errorf("flatpak list: %w", err)
+	}
+	return parseFlatpakList(string(out)), nil
+}
+
+// parseFlatpakList parses `flatpak list --app --columns=name,application,version`
+// output. Same TSV rules as search: header only on a terminal, so rows
+// are filtered by a digit check on the version field.
+func parseFlatpakList(output string) []Package {
+	var pkgs []Package
+	for _, line := range strings.Split(output, "\n") {
+		if line == "" {
+			continue
+		}
+		cols := strings.Split(line, "\t")
+		if len(cols) < 3 {
+			continue
+		}
+		if !strings.ContainsAny(cols[2], "0123456789") {
+			continue // header row
+		}
+		pkgs = append(pkgs, Package{
+			Name:        cols[1], // application ID
+			Version:     cols[2],
+			Description: cols[0],
+			Source:      "flatpak",
+		})
+	}
+	return pkgs
+}
+
 // parseFlatpakSearch parses `flatpak search --columns=name,description,application,version`
 // output: tab-separated rows. flatpak omits the header when stdout is
 // not a terminal, so rows are identified by field count, not position.

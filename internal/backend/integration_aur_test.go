@@ -31,3 +31,16 @@ func TestAURNoMatchIntegration(t *testing.T) {
 		t.Fatalf("got %d results, want 0", len(pkgs))
 	}
 }
+
+func TestAURListIntegration(t *testing.T) {
+	// Empty is fine: a clean container has no foreign packages.
+	pkgs, err := AUR{}.List()
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	for _, p := range pkgs {
+		if p.Name == "" || p.Version == "" || p.Source != "aur" {
+			t.Errorf("bad package: %+v", p)
+		}
+	}
+}

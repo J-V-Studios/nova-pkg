@@ -39,3 +39,19 @@ func TestFlatpakRemoteInfoIntegration(t *testing.T) {
 		t.Fatalf("remote-info: %v\n%s", err, out)
 	}
 }
+
+func TestFlatpakListIntegration(t *testing.T) {
+	if _, err := exec.LookPath("flatpak"); err != nil {
+		t.Skip("flatpak not installed")
+	}
+	// Empty is fine: a clean container has no flatpak apps installed.
+	pkgs, err := Flatpak{}.List()
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	for _, p := range pkgs {
+		if p.Name == "" || p.Source != "flatpak" {
+			t.Errorf("bad package: %+v", p)
+		}
+	}
+}

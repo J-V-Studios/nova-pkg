@@ -17,4 +17,7 @@ type Backend interface {
 	Available() bool // exec.LookPath check for the tool
 	Search(query string) ([]Package, error)
 	Install(pkg string) error
+	Remove(pkg string) error
+	Update() error
+	List() ([]Package, error) // installed packages
 }

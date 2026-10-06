@@ -40,6 +40,54 @@ func (Pacman) Install(pkg string) error {
 	return nil
 }
 
+func (Pacman) Remove(pkg string) error {
+	cmd := exec.Command("sudo", "pacman", "-R", pkg)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("pacman remove %s: %w", pkg, err)
+	}
+	return nil
+}
+
+func (Pacman) Update() error {
+	cmd := exec.Command("sudo", "pacman", "-Syu")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("pacman update: %w", err)
+	}
+	return nil
+}
+
+func (Pacman) List() ([]Package, error) {
+	out, err := exec.Command("pacman", "-Q").Output()
+	if err != nil {
+		return nil, fmt.Errorf("pacman list: %w", err)
+	}
+	return parsePacmanQ(string(out), "pacman"), nil
+}
+
+// parsePacmanQ parses `pacman -Q` / `pacman -Qm` output: one
+// "name version" line per installed package. Pure function.
+func parsePacmanQ(output, source string) []Package {
+	var pkgs []Package
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		pkgs = append(pkgs, Package{
+			Name:    fields[0],
+			Version: fields[1],
+			Source:  source,
+		})
+	}
+	return pkgs
+}
+
 // parseSearch parses `pacman -Ss` output. Pure function so it can be
 // unit tested without running pacman.
 //

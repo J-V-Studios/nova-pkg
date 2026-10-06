@@ -37,3 +37,24 @@ func TestParseFlatpakSearchEmpty(t *testing.T) {
 		t.Fatalf("got %d packages, want 0", len(pkgs))
 	}
 }
+
+func TestParseFlatpakList(t *testing.T) {
+	sample := "Shortwave\tde.haeckerfelix.Shortwave\t5.1.0\n"
+	pkgs := parseFlatpakList(sample)
+	if len(pkgs) != 1 {
+		t.Fatalf("got %d packages, want 1", len(pkgs))
+	}
+	if pkgs[0].Name != "de.haeckerfelix.Shortwave" || pkgs[0].Version != "5.1.0" ||
+		pkgs[0].Description != "Shortwave" || pkgs[0].Source != "flatpak" {
+		t.Errorf("unexpected package: %+v", pkgs[0])
+	}
+}
+
+func TestParseFlatpakListWithHeader(t *testing.T) {
+	sample := "Name\tApplication ID\tVersion\n" +
+		"Shortwave\tde.haeckerfelix.Shortwave\t5.1.0\n"
+	pkgs := parseFlatpakList(sample)
+	if len(pkgs) != 1 {
+		t.Fatalf("got %d packages, want 1", len(pkgs))
+	}
+}

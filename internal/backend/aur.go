@@ -84,6 +84,75 @@ func (AUR) Install(pkg string) error {
 	return nil
 }
 
+// Remove uninstalls an AUR package through pacman: makepkg-installed
+// packages are ordinary pacman packages once built.
+func (AUR) Remove(pkg string) error {
+	return Pacman{}.Remove(pkg)
+}
+
+// Update checks foreign (AUR) packages against the RPC and reports
+// newer versions. It does not rebuild automatically; the user reruns
+// `nova-pkg install <name>` for the ones listed. Version comparison is
+// a plain string inequality, so occasional false positives are possible.
+func (AUR) Update() error {
+	foreign, err := AUR{}.List()
+	if err != nil {
+		return fmt.Errorf("aur update: %w", err)
+	}
+	if len(foreign) == 0 {
+		fmt.Println("aur: no foreign packages installed")
+		return nil
+	}
+
+	q := url.Values{}
+	for _, p := range foreign {
+		q.Add("arg[]", p.Name)
+	}
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(aurRPCURL + "&type=info&" + q.Encode())
+	if err != nil {
+		return fmt.Errorf("aur update: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("aur update: unexpected status %s", resp.Status)
+	}
+	var ar aurResponse
+	if err := json.NewDecoder(resp.Body).Decode(&ar); err != nil {
+		return fmt.Errorf("aur update: %w", err)
+	}
+
+	latest := make(map[string]string, len(ar.Results))
+	for _, r := range ar.Results {
+		latest[r.Name] = r.Version
+	}
+	outdated := 0
+	for _, p := range foreign {
+		if v, ok := latest[p.Name]; ok && v != p.Version {
+			outdated++
+			fmt.Printf("aur: %s %s -> %s (run: nova-pkg install %s)\n", p.Name, p.Version, v, p.Name)
+		}
+	}
+	if outdated == 0 {
+		fmt.Println("aur: all foreign packages up to date")
+	}
+	return nil
+}
+
+// List returns foreign packages (`pacman -Qm`), which on this system
+// means AUR-built packages.
+func (AUR) List() ([]Package, error) {
+	out, err := exec.Command("pacman", "-Qm").Output()
+	if err != nil {
+		// pacman exits 1 when no foreign packages exist.
+		if len(out) == 0 {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("aur list: %w", err)
+	}
+	return parsePacmanQ(string(out), "aur"), nil
+}
+
 // parseAURSearch maps decoded RPC results to Packages. Pure function
 // so it can be unit tested without network access.
 func parseAURSearch(ar aurResponse) []Package {
