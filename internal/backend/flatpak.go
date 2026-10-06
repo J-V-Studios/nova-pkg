@@ -18,8 +18,11 @@ func (Flatpak) Available() bool {
 }
 
 func (Flatpak) Search(query string) ([]Package, error) {
+	if strings.HasPrefix(query, "-") {
+		return nil, fmt.Errorf("invalid query %q", query)
+	}
 	out, err := exec.Command("flatpak", "search",
-		"--columns=name,description,application,version", query).Output()
+		"--columns=name,description,application,version", "--", query).Output()
 	if err != nil {
 		if len(out) == 0 {
 			return nil, nil // no matches
@@ -30,9 +33,12 @@ func (Flatpak) Search(query string) ([]Package, error) {
 }
 
 func (Flatpak) Install(pkg string) error {
+	if err := ValidateName(pkg); err != nil {
+		return err
+	}
 	// -y answers yes to prompts; stdin stays attached so remote
 	// selection and polkit auth still work when -y cannot cover them.
-	cmd := exec.Command("flatpak", "install", "-y", pkg)
+	cmd := exec.Command("flatpak", "install", "-y", "--", pkg)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -43,7 +49,10 @@ func (Flatpak) Install(pkg string) error {
 }
 
 func (Flatpak) Remove(pkg string) error {
-	cmd := exec.Command("flatpak", "uninstall", "-y", pkg)
+	if err := ValidateName(pkg); err != nil {
+		return err
+	}
+	cmd := exec.Command("flatpak", "uninstall", "-y", "--", pkg)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

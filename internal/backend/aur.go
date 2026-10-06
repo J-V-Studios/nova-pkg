@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
 	"time"
 )
@@ -50,15 +49,19 @@ func (AUR) Search(query string) ([]Package, error) {
 	}
 
 	var ar aurResponse
-	if err := json.NewDecoder(resp.Body).Decode(&ar); err != nil {
+	// Cap the body at 10MB: a hostile or broken proxy must not OOM us.
+	if err := json.NewDecoder(http.MaxBytesReader(nil, resp.Body, 10<<20)).Decode(&ar); err != nil {
 		return nil, fmt.Errorf("aur search: %w", err)
 	}
 	return parseAURSearch(ar), nil
 }
 
 func (AUR) Install(pkg string) error {
+	if err := ValidateName(pkg); err != nil {
+		return err
+	}
 	// makepkg refuses to run as root.
-	if u, err := user.Current(); err == nil && u.Uid == "0" {
+	if os.Geteuid() == 0 {
 		return fmt.Errorf("aur install %s: refusing to run makepkg as root", pkg)
 	}
 

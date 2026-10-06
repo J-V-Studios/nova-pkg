@@ -18,7 +18,12 @@ func (Pacman) Available() bool {
 }
 
 func (Pacman) Search(query string) ([]Package, error) {
-	out, err := exec.Command("pacman", "-Ss", query).Output()
+	// pacman -Ss treats the query as a regex; only flag injection
+	// (leading dash) must be blocked, not regex syntax itself.
+	if strings.HasPrefix(query, "-") {
+		return nil, fmt.Errorf("invalid query %q", query)
+	}
+	out, err := exec.Command("pacman", "-Ss", "--", query).Output()
 	if err != nil {
 		// pacman exits 1 when nothing matches; that is not an error for us.
 		if len(out) == 0 {
@@ -30,7 +35,10 @@ func (Pacman) Search(query string) ([]Package, error) {
 }
 
 func (Pacman) Install(pkg string) error {
-	cmd := exec.Command("sudo", "pacman", "-S", pkg)
+	if err := ValidateName(pkg); err != nil {
+		return err
+	}
+	cmd := exec.Command("sudo", "pacman", "-S", "--", pkg)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -41,7 +49,10 @@ func (Pacman) Install(pkg string) error {
 }
 
 func (Pacman) Remove(pkg string) error {
-	cmd := exec.Command("sudo", "pacman", "-R", pkg)
+	if err := ValidateName(pkg); err != nil {
+		return err
+	}
+	cmd := exec.Command("sudo", "pacman", "-R", "--", pkg)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

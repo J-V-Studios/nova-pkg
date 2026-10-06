@@ -16,6 +16,22 @@ func TestBackendContract(t *testing.T) {
 	}
 }
 
+func TestValidateName(t *testing.T) {
+	valid := []string{"cava", "linux", "de.haeckerfelix.Shortwave", "cava-git", "lib32-openal", "foo+bar", "x@y", "a_b"}
+	for _, n := range valid {
+		if err := ValidateName(n); err != nil {
+			t.Errorf("ValidateName(%q) = %v, want nil", n, err)
+		}
+	}
+	// Flag injection, path traversal, shell metachars, empty.
+	invalid := []string{"-Syyu", "--upload-pack=evil", "../etc", "a/b", "a;b", "a b", "$(id)", "", "-", "."}
+	for _, n := range invalid {
+		if err := ValidateName(n); err == nil {
+			t.Errorf("ValidateName(%q) = nil, want error", n)
+		}
+	}
+}
+
 // TestSearchMissingToolNoResults: when the underlying tool is absent,
 // Search must not crash; empty output maps to no results, no error.
 // This matches how pacman/flatpak treat "no matches" (exit 1, no output).
