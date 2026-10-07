@@ -69,12 +69,29 @@ func (AUR) Install(pkg string) error {
 	if err != nil {
 		return fmt.Errorf("aur install %s: %w", pkg, err)
 	}
-	// Do not remove the temp dir: makepkg output stays for debugging.
+	// dir is removed on success, abort, and clone failure. It survives
+	// only a makepkg failure, for debugging.
 	fmt.Println("aur: building in", dir)
 
 	clone := exec.Command("git", "clone", "https://aur.archlinux.org/"+pkg+".git", filepath.Join(dir, pkg))
 	if out, err := clone.CombinedOutput(); err != nil {
+		os.RemoveAll(dir)
 		return fmt.Errorf("aur install %s: git clone: %w\n%s", pkg, err, out)
+	}
+
+	// AUR PKGBUILDs are user-submitted shell. Show the build script
+	// and require explicit confirmation before executing it.
+	pkgbuild, err := os.ReadFile(filepath.Join(dir, pkg, "PKGBUILD"))
+	if err != nil {
+		os.RemoveAll(dir)
+		return fmt.Errorf("aur install %s: %w", pkg, err)
+	}
+	fmt.Printf("--- %s/PKGBUILD ---\n%s\n", pkg, pkgbuild)
+	fmt.Printf("Build and install %s with this PKGBUILD? [y/N] ", pkg)
+	var answer string
+	if _, err := fmt.Scanln(&answer); err != nil || (answer != "y" && answer != "Y") {
+		os.RemoveAll(dir)
+		return fmt.Errorf("aur install %s: aborted by user", pkg)
 	}
 
 	build := exec.Command("makepkg", "-si")
@@ -83,8 +100,11 @@ func (AUR) Install(pkg string) error {
 	build.Stderr = os.Stderr
 	build.Stdin = os.Stdin
 	if err := build.Run(); err != nil {
+		// Keep dir on build failure for debugging.
+		fmt.Println("aur: build files kept in", dir)
 		return fmt.Errorf("aur install %s: makepkg: %w", pkg, err)
 	}
+	os.RemoveAll(dir)
 	return nil
 }
 
